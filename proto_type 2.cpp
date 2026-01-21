@@ -1,14 +1,11 @@
 #include <iostream>
 #include <random>
 #include <string>
-<<<<<<< HEAD
 #include <windows.h>
 #include <conio.h>
 #include <chrono>
 #include <thread>
 #include <cstdlib>
-=======
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
 
 class math_equation {
     
@@ -31,10 +28,7 @@ class math_equation {
     std::cout << equation [i]; 
        }
       } 
-<<<<<<< HEAD
       std::cout << std::endl;
-=======
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
      }
 
      ~math_equation () {
@@ -71,13 +65,8 @@ class math_equation {
     }
 
     void precedence_solving (bool& a , std::string_view b) {
-<<<<<<< HEAD
     while (a == true) {
     	previous_op = "empty";
-=======
-
-    while (a == true) {
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
 
     for (int i = 0;i < total_row;i++) {
 
@@ -89,7 +78,6 @@ class math_equation {
          if (equation[x] == "empty") continue;
          previous_number = str_to_int (equation[x]);
          equation[x] = "empty";
-<<<<<<< HEAD
          
         if (b== "+" || b== "-") {
           	for (int i = x-1 ; i >= 0 ; i--) {
@@ -101,8 +89,6 @@ class math_equation {
           	   break;
           	    }	          	
           }    
-=======
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
          break;
         }
 
@@ -116,7 +102,6 @@ class math_equation {
         int result = 0;
         if (b == "/") result = previous_number/next_number;
         else if (b == "*") result = previous_number*next_number;
-<<<<<<< HEAD
         else if (b == "+" && previous_op == "-") { int temporary_result = -previous_number +next_number;
         if (temporary_result < 0) {
         equation [i-1] = "-";}
@@ -130,9 +115,6 @@ class math_equation {
         else if (temporary_result > 0) {
         	equation [i-1] = "+";}
         result = std::abs(temporary_result);}
-=======
-        else if (b == "+") result = previous_number+next_number;
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
         else if (b == "-") result = previous_number-next_number;
 
         equation [i] = int_to_str(result);
@@ -148,17 +130,12 @@ class math_equation {
 
     }//function end
 
-<<<<<<< HEAD
     void solve_equation () {
-=======
-    int solve_equation () {
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
     precedence_solving(divide_op_present,"/");
     precedence_solving(multiply_op_present,"*");
     precedence_solving(addition_op_present,"+");
     precedence_solving(subtraction_op_present,"-");
 
-<<<<<<< HEAD
      for (int i = 0; i < total_row; i++) {
        if (equation[i] != "empty") {
         answer = str_to_int(equation[i]);
@@ -191,29 +168,13 @@ class math_equation {
      subtraction_op_present = true;
      answer = 0;
 
-=======
-     int answer = 0;
-
-     for (int i = 0; i < total_row; i++) {
-       if (equation[i] != "empty") {
-        answer = str_to_int(equation[i]);
-        std::cout << std::endl;
-        std::cout << answer;
-        break;
-       }
-      }
-     return answer;
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
     }
 
 
     protected :
     int previous_number = 0;
     int next_number = 0; 
-<<<<<<< HEAD
     int answer = 0;
-=======
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
 
     static constexpr int number = 4;
     static constexpr int op = number-1;
@@ -227,7 +188,6 @@ class math_equation {
     bool multiply_op_present = true;
     bool addition_op_present = true;
     bool subtraction_op_present = true;
-<<<<<<< HEAD
     std::string previous_op = "empty";
 
    std::mt19937 gen{std::random_device{}()}; //random number generator engine
@@ -336,14 +296,4 @@ class game_state : public math_equation {
 int main () {
   game_state play_game;
   play_game.game_loop();
-=======
-
-    std::mt19937 gen{std::random_device{}()}; //random number generator engine
-
-};
-
-int main () {
-    math_equation eq1;
-    eq1.solve_equation();
->>>>>>> 2b20b432f36d61693fda81ce01602757dcaf9760
 }
