@@ -6,6 +6,8 @@
 #include <chrono>
 #include <thread>
 #include <cstdlib>
+#include <atomic>
+
 
 class math_equation {
     
@@ -20,20 +22,30 @@ class math_equation {
     // filling in with data
     for (int i = 0; i < total_row ; i++) {
     if (i % 2 == 0) {
-    equation [i] = random_number();
+    equation [i] = random_number(); //put a number in odd position 
     std::cout << equation [i]; 
        }
     else {
-    equation[i] = random_operator();
-    std::cout << equation [i]; 
+    equation[i] = random_operator(); // put a operator in even position
+    std::cout << equation [i]; // print the equation;
        }
       } 
       std::cout << std::endl;
+      // so equation will look number op number op number like this
      }
 
      ~math_equation () {
 
      }
+
+    int str_to_int (std::string a) {
+    int x = std::stoi(a);
+    return x;
+    }
+
+     std::string int_to_str (int a) {
+    return std::to_string (a);
+    }
 
     int generaterandomnumber(int min, int max) {
     std::uniform_int_distribution<> dist(min, max); // Uniform distribution
@@ -55,43 +67,38 @@ class math_equation {
     return random_num;
     }
 
-    int str_to_int (std::string a) {
-    int x = std::stoi(a);
-    return x;
-    }
 
-    std::string int_to_str (int a) {
-    return std::to_string (a);
-    }
 
     void precedence_solving (bool& a , std::string_view b) {
-    while (a == true) {
-    	previous_op = "empty";
+    while (a == true) {  // it will check for multiplr times if it find 1 instance of b;
+    	previous_op = "empty";  //resetting previous op
 
     for (int i = 0;i < total_row;i++) {
 
-       if (equation[i] == "empty") continue;
+       if (equation[i] == "empty") continue;  //if string is empty ignore
 
-       if (equation[i] == b) {
-         a = true;
+       if (equation[i] == b) {    //find the passed op
+         a = true; //set condition to true
         for (int x = i-1; x >= 0;x--) {
          if (equation[x] == "empty") continue;
-         previous_number = str_to_int (equation[x]);
-         equation[x] = "empty";
-         
-        if (b== "+" || b== "-") {
-          	for (int i = x-1 ; i >= 0 ; i--) {
+         previous_number = str_to_int (equation[x]);  //get the previous number
+         equation[x] = "empty"; // make it empty
+
+         //checking for  unary minus bug where - 12 and -12 are separate entity
+
+        if (b== "+" || b== "-") {  //only for adition and subtraction
+          	for (int i = x-1 ; i >= 0 ; i--) { //check for the operator before previous no
               if (equation[i] == "empty") continue;
-            else if (equation[i] != "empty" && equation[i] != "-") break;
-            else if (equation[i] == "-")
-          	previous_op = equation [i];
-          	equation[i] = "empty";
+            else if (equation[i] != "empty" && equation[i] != "-") break; //if previous op is anything else than -,break
+            else if (equation[i] == "-") // if previous op is -
+          	previous_op = equation [i]; // store it
+          	equation[i] = "empty"; // make it empty in array but we will put it back if needed later
           	   break;
           	    }	          	
           }    
          break;
         }
-
+        // get next number from same method
         for (int x = i+1; x < total_row ; x++) {
          if (equation[x] == "empty") continue;
          next_number = str_to_int (equation [x]);
@@ -99,15 +106,18 @@ class math_equation {
          break;
         }
 
-        int result = 0;
+        int result = 0; // reset result;
+
         if (b == "/") result = previous_number/next_number;
         else if (b == "*") result = previous_number*next_number;
         else if (b == "+" && previous_op == "-") { int temporary_result = -previous_number +next_number;
-        if (temporary_result < 0) {
-        equation [i-1] = "-";}
-        else if (temporary_result > 0) {
-        	equation [i-1] = "+";}
-        result = std::abs(temporary_result);}
+          //here solving the unary operator problem by taking a -ve sign before prev number only for this specific condition
+        if (temporary_result < 0) { // if result is negative
+        equation [i-1] = "-";} //we put a -ve sign before results position in array
+        else if (temporary_result > 0) { // if its positive we put a +ve sign in arry before result position
+          equation [i-1] = "+";}
+        result = std::abs(temporary_result);} // then we take the absolute value of result because sign problem is 
+        // already dealt with before
         else if (b == "+") result = previous_number+next_number;
         else if (b == "-" && previous_op == "-") { int temporary_result = -previous_number - next_number;
             if (temporary_result < 0) {
@@ -117,7 +127,7 @@ class math_equation {
         result = std::abs(temporary_result);}
         else if (b == "-") result = previous_number-next_number;
 
-        equation [i] = int_to_str(result);
+        equation [i] = int_to_str(result);   //convering result back to sring and put it in the position of the current operator
         break;
         }
 
@@ -131,20 +141,22 @@ class math_equation {
     }//function end
 
     void solve_equation () {
-    precedence_solving(divide_op_present,"/");
+    precedence_solving(divide_op_present,"/"); //solve for division op first and so on
     precedence_solving(multiply_op_present,"*");
     precedence_solving(addition_op_present,"+");
     precedence_solving(subtraction_op_present,"-");
 
-     for (int i = 0; i < total_row; i++) {
+     for (int i = 0; i < total_row; i++) { // after precedence solving only 1 number will be left in array
+      // and that will be final resuly,scan for it :
        if (equation[i] != "empty") {
-        answer = str_to_int(equation[i]);
+        answer = str_to_int(equation[i]); // convert the ans back to int
         break;
        }
       }
     }
 
     void generate_new_equation() {
+      //empty existing  array
       for (int i = 0;  i < total_row ; i++) {
         equation [i] = "empty";
         }
@@ -161,6 +173,8 @@ class math_equation {
        }
       } 
       std::cout << std::endl;
+
+      // reseting the variables
 
      divide_op_present = true;
      multiply_op_present = true;
@@ -242,35 +256,54 @@ class game_state : public math_equation {
   }
 
   void handle_input () {
-    while (true) {
+    join_thread = false;
+    while (!join_thread) {
       char key = 0;
     while ((key = get_input()) == 0) {
        key = get_input();
-       std::this_thread::sleep_for(std::chrono::milliseconds(100));
+       if (join_thread) break;
+       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     if (key == '1') {user_answer = option_1;
+                  join_thread = true;
                          break;}
     else if (key == '2') {user_answer = option_2;
+                  join_thread = true;
                          break;}
     else if (key == '3') {user_answer = option_3;
+                  join_thread = true;
                          break;}
     else if (key == '4') {user_answer = option_4;
+                  join_thread = true;
                          break;}
-    else {std::cout << " NOT A VALID OPTION " << std::endl;}
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
+
+    else if (key == 0) {}
+    else  {std::cout << " NOT A VALID OPTION " << std::endl;}
   }
+}
 
   void update_score() {
     if (user_answer == answer) {
       score++;
       std::cout << "CORRECT-ANSWER! " << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       std::cout << "SCORE : " << score << std::endl;
     }
     else {
     std::cout << "WRONG-ANSWER! " << std::endl;
+     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     std::cout << "SCORE : " << score << std::endl;
     }
+  }
+
+
+  void timer () {
+    for (int i = 0; i <= time_duration_sec; i++ ) {
+      if (join_thread == true) break;
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      if (i == time_duration_sec) {std::cout << "[TIME-UP!]" << std::endl;}
+    }
+    join_thread = true;
   }
 
   void game_loop () {
@@ -278,8 +311,14 @@ class game_state : public math_equation {
       solve_equation();
       generate_options();
       print_options();
-      handle_input();
+      std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
+      //the are functions of this obj i cant use them directly,here we basically say handle input is a func
+      // for game_state  class and call it for current obj using this pointer
+      std::thread t2 (&game_state::timer,this);
+      t1.join();
+      t2.join();
       update_score();
+      system("cls");   // clear the screen so new question can appear on same position
       generate_new_equation();
     }
   }
@@ -291,6 +330,9 @@ class game_state : public math_equation {
   int option_2 = 0;
   int option_3 = 0;
   int option_4 = 0;
+  std::atomic<bool> join_thread = false; // using this in 2 func , handle input and timer
+  //to avoid race condition using atomic boool
+  int time_duration_sec = 15; // time limit for each question on screen
 };
 
 int main () {
