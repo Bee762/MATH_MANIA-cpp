@@ -30,13 +30,6 @@ class math_equation {
 
      }
 
-     void print_question() {
-      for (int i = 0; i < total_row; i++) {
-        std::cout << equation[i];
-      }
-      std::cout << std::endl;
-     }
-
     int str_to_int (std::string a) {
     int x = std::stoi(a);
     return x;
@@ -237,11 +230,6 @@ class game_state : public math_equation {
   }
   }
 
-  void print_options () {
-    std::cout << option_1 <<  "    " << option_2 << std::endl;
-    std::cout << option_3 <<  "    " << option_4 << std::endl;
-  }
-
   char get_input () {
     if (!_kbhit()) return 0;
     return _getch();
@@ -250,6 +238,7 @@ class game_state : public math_equation {
   void handle_input () {
     user_answer = 1000000; //setting it unnecesarily high so if user doesnot answer the default ans wont be correct ans
     join_thread = false;
+    std::cout << "\033[?25l";
     while (!join_thread) {
       char key = 0;
     while ((key = get_input()) == 0) {
@@ -272,7 +261,7 @@ class game_state : public math_equation {
     else if (key == 'q' || key == 'Q') { join_thread = true;
                     game_quit();}
     else if (key == 0) {} //this is default key,when user presses nothing and times up,we print nothing
-    else  {std::cout << " NOT A VALID OPTION " << std::endl;}
+    //else  {std::cout << "INVALID OPTION" << std::endl;}
     }
   }
 
@@ -280,26 +269,22 @@ class game_state : public math_equation {
     if (user_answer == answer) {
       score++;
       streak++;
-      std::cout << "CORRECT-ANSWER! " << std::endl;
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-      std::cout << "SCORE : " << score << std::endl;
     }
     else {
      player_heart--;
      streak = 0;
-    std::cout << "WRONG-ANSWER! " << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    std::cout << "SCORE : " << score << std::endl;
     if (player_heart == 0) {game_end = true;}
     }
   }
 
 
   void timer () {
+    time_up = false; //resetting the flag
+
     for (int i = 0; i < time_duration_sec; i++ ) {
       if (join_thread == true) break;
       std::this_thread::sleep_for(std::chrono::seconds(1));
-      if (i == time_duration_sec) {std::cout << "[TIME-UP!]" << std::endl;}
+      if (i == time_duration_sec - 1) {time_up = true;} // to print it later storing data in a flag
     }
     join_thread = true;
   }
@@ -328,26 +313,6 @@ class game_state : public math_equation {
     );
   }
 
-  void game_loop () {
-    while (true) {
-      //constructor generates first equation;
-      print_question();
-      solve_equation();
-      generate_options();
-      print_options();
-      std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
-      //they are functions of this obj i cant use them directly,here we basically say handle input is a func
-      // for game_state  class and call it for current obj using this pointer
-      std::thread t2 (&game_state::timer,this);
-      t1.join();
-      t2.join();
-      if(player_quit) break;  //ending the program when player chooses to,for immediate effect it is placed above update score
-      update_score();         // because there is delay in update score
-      if(game_end) break; //naturally end games when life is zero,placing here to show score
-      system("cls");   // clear the screen so new question can appear on same position
-      generate_new_equation();
-    }
-  }
 
   protected :  
   int user_answer = 0;
@@ -363,16 +328,127 @@ class game_state : public math_equation {
   int time_duration_sec = 10; // time limit for each question on screen
   bool game_end = false;
   bool player_quit = false;
+  bool time_up = false;
 
   int terminal_height = 0;
   int terminal_width = 0;
 };
 
-class game_ui : protected  game_state {
+class game_ui : public game_state {
+
+  public : 
+
+  game_ui () : game_state () {
+
+  }
+
+  ~game_ui () {
+
+  }
+
+  void print_question() {
+     get_terminal_size();
+     border_around_question();
+     move_cursor ((terminal_width/2 - (total_row/2 + 13)) , terminal_height/4);
+     std::cout << "{QUESTION} : ";
+      for (int i = 0; i < total_row; i++) {
+        std::cout << equation[i];
+      }
+      std::cout << " = ?" << std::endl;
+  }
+
+  void print_options () {
+    get_terminal_size();
+    move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 2);
+    std::cout << option_1 << "     " << option_2 << std::endl;
+    move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 3);
+    std::cout << option_3 << "     " << option_4 << std::endl;
+  }
+
+  void print_score () {
+    std::cout << "[SCORE : " << score << "]" << std::endl;
+  }
+
+  void answer_feedback() {
+
+    get_terminal_size();
+    move_cursor ((terminal_width/2 - (total_row/2 + 1) ) , terminal_height/4 + 4);
+
+    if (time_up) std::cout << "[TIMES-UP!]" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(700));
+
+    get_terminal_size();
+    move_cursor ((terminal_width/2 - (total_row/2 + 3)) , terminal_height/4 + 5);
+
+    if (user_answer == answer) {
+      std::cout << "[CORRECT-ANSWER!]" << std::endl;
+    }
+    else if (user_answer != answer && user_answer != 1000000 ) {
+      std::cout << "[WRONG-ANSWER!]" << std::endl;
+    }
+    else if (user_answer == 1000000) {
+      std::cout << "  [NO ANSWER]" << std::endl;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+
+  void print_streak () {
+    if (streak >= 3) {
+      std::cout << "STREAK x" << streak << std::endl;
+    }
+  }
+
+  void border_around_question () {
+    //upper border
+    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 - 2);
+    for (int i = 0; i <= 32 + total_row ; i++) {
+      std::cout << ":";
+    }
+    //left border
+    move_cursor ((terminal_width/2 - (total_row/2 + 17)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 9); i++) {
+       move_cursor ((terminal_width/2 - (total_row/2 + 17)) , i);
+      std::cout << ":" << std::endl;
+    }
+     //right border
+     move_cursor ((terminal_width/2 - (total_row/2 - 15)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 9); i++) {
+       move_cursor ((terminal_width/2 - (total_row/2 - 24)) , i);
+      std::cout << ":" << std::endl;
+    }
+    //lower border
+    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 + 7);
+    for (int i = 0; i <= 32 + total_row ; i++) {
+      std::cout << ":";
+    }
+
+  }
+
+  void game_loop () {
+    while (true) {
+       system("cls"); // clear the screen so new question can appear on same position
+      //constructor generates first equation :)
+      print_question();
+      solve_equation();
+      generate_options();
+      print_options();
+      std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
+      //they are functions of this obj i cant use them directly,here we basically say handle input is a func
+      // for game_state  class and call it for current obj using this pointer
+      std::thread t2 (&game_state::timer,this);
+      t1.join();
+      t2.join();
+      answer_feedback();
+      if(player_quit) break;  //ending the program when player chooses to,for immediate effect it is placed above update score
+      update_score();         // because there is delay in update score
+      if(game_end) break; //naturally end games when life is zero,placing here to show score
+      generate_new_equation();
+    }
+  }
 
 };
 
 int main () {
-  game_state play_game;
+  game_ui play_game;
   play_game.game_loop();
 }
