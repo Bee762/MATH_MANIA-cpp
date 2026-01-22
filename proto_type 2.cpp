@@ -7,6 +7,7 @@
 #include <thread>
 #include <cstdlib>
 #include <atomic>
+#include <iomanip>
 
 
 class math_equation {
@@ -265,10 +266,11 @@ class game_state : public math_equation {
     }
   }
 
-  void update_score() {
+  void update_score_and_hearts() {
     if (user_answer == answer) {
       score++;
       streak++;
+      if(streak % 5 == 0 && player_heart < 5) player_heart++; //for 5 streak reward player a heart but maximum 5 hearts allowed
     }
     else {
      player_heart--;
@@ -369,6 +371,19 @@ class game_ui : public game_state {
     std::cout << "[SCORE : " << score << "]" << std::endl;
   }
 
+  void print_lifes () {
+     get_terminal_size();
+     move_cursor((terminal_width/2 - (total_row/2 + 10)) , terminal_height/4-4);
+     std::cout << "[HEALTH-BAR] : ";
+     if (player_heart == 0) std::cout << "    ";
+     else {
+      for (int i = 0 ; i < player_heart ; i++) {
+      std::cout << "[()]";
+      }
+     }
+    std::cout << std::endl;
+  }
+
   void answer_feedback() {
 
     get_terminal_size();
@@ -424,25 +439,34 @@ class game_ui : public game_state {
 
   }
 
-  void game_loop () {
-    while (true) {
-       system("cls"); // clear the screen so new question can appear on same position
+  void question_ui() {
+     system("cls"); // clear the screen so new question can appear on same position
       //constructor generates first equation :)
+      generate_new_equation();  //but we will rewrite the question for styling purpose
       print_question();
+      print_lifes();
       solve_equation();
       generate_options();
-      print_options();
-      std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
+      print_options();  
+  }
+
+  void answer_ui() {
+    std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
       //they are functions of this obj i cant use them directly,here we basically say handle input is a func
       // for game_state  class and call it for current obj using this pointer
       std::thread t2 (&game_state::timer,this);
       t1.join();
       t2.join();
       answer_feedback();
-      if(player_quit) break;  //ending the program when player chooses to,for immediate effect it is placed above update score
-      update_score();         // because there is delay in update score
-      if(game_end) break; //naturally end games when life is zero,placing here to show score
-      generate_new_equation();
+      update_score_and_hearts();
+      if(player_heart == 0) print_lifes(); //printing life before ending game
+  }
+
+  void game_loop () {
+    while (true) {
+      question_ui();
+      answer_ui();
+      if(player_quit||game_end) break;  //ending the program when player chooses to, and naturally end games when life is zero,
     }
   }
 
