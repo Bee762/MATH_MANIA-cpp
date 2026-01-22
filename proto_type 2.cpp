@@ -21,21 +21,20 @@ class math_equation {
 
     // filling in with data
     for (int i = 0; i < total_row ; i++) {
-    if (i % 2 == 0) {
-    equation [i] = random_number(); //put a number in odd position 
-    std::cout << equation [i]; 
-       }
-    else {
-    equation[i] = random_operator(); // put a operator in even position
-    std::cout << equation [i]; // print the equation;
-       }
-      } 
-      std::cout << std::endl;
-      // so equation will look number op number op number like this
+    if (i % 2 == 0) equation [i] = random_number(); //put a number in odd position  
+    else equation[i] = random_operator(); // put a operator in even position
+      } // so equation will look number op number op number like this
      }
 
      ~math_equation () {
 
+     }
+
+     void print_question() {
+      for (int i = 0; i < total_row; i++) {
+        std::cout << equation[i];
+      }
+      std::cout << std::endl;
      }
 
     int str_to_int (std::string a) {
@@ -112,19 +111,19 @@ class math_equation {
         else if (b == "*") result = previous_number*next_number;
         else if (b == "+" && previous_op == "-") { int temporary_result = -previous_number +next_number;
           //here solving the unary operator problem by taking a -ve sign before prev number only for this specific condition
-        if (temporary_result < 0) { // if result is negative
-        equation [i-1] = "-";} //we put a -ve sign before results position in array
-        else if (temporary_result > 0) { // if its positive we put a +ve sign in arry before result position
-          equation [i-1] = "+";}
-        result = std::abs(temporary_result);} // then we take the absolute value of result because sign problem is 
+             if (temporary_result < 0) { // if result is negative
+              equation [i-1] = "-";} //we put a -ve sign before results position in array
+             else if (temporary_result > 0) { // if its positive we put a +ve sign in arry before result position
+              equation [i-1] = "+";}
+              result = std::abs(temporary_result);} // then we take the absolute value of result because sign problem is 
         // already dealt with before
         else if (b == "+") result = previous_number+next_number;
         else if (b == "-" && previous_op == "-") { int temporary_result = -previous_number - next_number;
-            if (temporary_result < 0) {
-        equation [i-1] = "-";}
-        else if (temporary_result > 0) {
-        	equation [i-1] = "+";}
-        result = std::abs(temporary_result);}
+             if (temporary_result < 0) {
+              equation [i-1] = "-";}
+             else if (temporary_result > 0) {
+        	    equation [i-1] = "+";}
+              result = std::abs(temporary_result);}
         else if (b == "-") result = previous_number-next_number;
 
         equation [i] = int_to_str(result);   //convering result back to sring and put it in the position of the current operator
@@ -162,17 +161,10 @@ class math_equation {
         }
 
     // filling in with data
-    for (int i = 0; i < total_row ; i++) {
-    if (i % 2 == 0) {
-    equation [i] = random_number();
-    std::cout << equation [i]; 
-       }
-    else {
-    equation[i] = random_operator();
-    std::cout << equation [i]; 
-       }
-      } 
-      std::cout << std::endl;
+   for (int i = 0; i < total_row ; i++) {
+    if (i % 2 == 0) equation [i] = random_number(); //put a number in odd position  
+    else equation[i] = random_operator(); // put a operator in even position
+    } // so equation will look number op number op number like this
 
       // reseting the variables
 
@@ -256,6 +248,7 @@ class game_state : public math_equation {
   }
 
   void handle_input () {
+    user_answer = 1000000; //setting it unnecesarily high so if user doesnot answer the default ans wont be correct ans
     join_thread = false;
     while (!join_thread) {
       char key = 0;
@@ -276,29 +269,34 @@ class game_state : public math_equation {
     else if (key == '4') {user_answer = option_4;
                   join_thread = true;
                          break;}
-
-    else if (key == 0) {}
+    else if (key == 'q' || key == 'Q') { join_thread = true;
+                    game_quit();}
+    else if (key == 0) {} //this is default key,when user presses nothing and times up,we print nothing
     else  {std::cout << " NOT A VALID OPTION " << std::endl;}
+    }
   }
-}
 
   void update_score() {
     if (user_answer == answer) {
       score++;
+      streak++;
       std::cout << "CORRECT-ANSWER! " << std::endl;
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       std::cout << "SCORE : " << score << std::endl;
     }
     else {
+     player_heart--;
+     streak = 0;
     std::cout << "WRONG-ANSWER! " << std::endl;
-     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     std::cout << "SCORE : " << score << std::endl;
+    if (player_heart == 0) {game_end = true;}
     }
   }
 
 
   void timer () {
-    for (int i = 0; i <= time_duration_sec; i++ ) {
+    for (int i = 0; i < time_duration_sec; i++ ) {
       if (join_thread == true) break;
       std::this_thread::sleep_for(std::chrono::seconds(1));
       if (i == time_duration_sec) {std::cout << "[TIME-UP!]" << std::endl;}
@@ -306,18 +304,46 @@ class game_state : public math_equation {
     join_thread = true;
   }
 
+  void game_quit () {
+    player_quit = true;
+  }
+
+  void get_terminal_size() {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+        terminal_width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        terminal_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;//this func returns the height nd width of terminal in windows
+    } else {
+       terminal_width = 80;
+       terminal_height  = 25;//if it cant do that for some reason,this is default terminal size most terminal in windows use
+    }
+  }
+
+  void move_cursor (int x,int y) {
+    COORD pos;
+    pos.X = x;
+    pos.Y = y;
+    SetConsoleCursorPosition(
+      GetStdHandle(STD_OUTPUT_HANDLE),pos
+    );
+  }
+
   void game_loop () {
     while (true) {
+      //constructor generates first equation;
+      print_question();
       solve_equation();
       generate_options();
       print_options();
       std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
-      //the are functions of this obj i cant use them directly,here we basically say handle input is a func
+      //they are functions of this obj i cant use them directly,here we basically say handle input is a func
       // for game_state  class and call it for current obj using this pointer
       std::thread t2 (&game_state::timer,this);
       t1.join();
       t2.join();
-      update_score();
+      if(player_quit) break;  //ending the program when player chooses to,for immediate effect it is placed above update score
+      update_score();         // because there is delay in update score
+      if(game_end) break; //naturally end games when life is zero,placing here to show score
       system("cls");   // clear the screen so new question can appear on same position
       generate_new_equation();
     }
@@ -325,14 +351,25 @@ class game_state : public math_equation {
 
   protected :  
   int user_answer = 0;
-  int score = 0;
+  int score = 0; //answer streak ,reward user based on continuous correct answers
+  int streak = 0;
+  int player_heart = 3; // life system
   int option_1 = 0;
   int option_2 = 0;
   int option_3 = 0;
   int option_4 = 0;
   std::atomic<bool> join_thread = false; // using this in 2 func , handle input and timer
-  //to avoid race condition using atomic boool
-  int time_duration_sec = 15; // time limit for each question on screen
+  //to avoid race condition using atomic bool
+  int time_duration_sec = 10; // time limit for each question on screen
+  bool game_end = false;
+  bool player_quit = false;
+
+  int terminal_height = 0;
+  int terminal_width = 0;
+};
+
+class game_ui : protected  game_state {
+
 };
 
 int main () {
