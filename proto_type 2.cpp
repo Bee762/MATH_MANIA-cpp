@@ -7,7 +7,7 @@
 #include <thread>
 #include <cstdlib>
 #include <atomic>
-#include <iomanip>
+#include <string_view>
 
 
 class math_equation {
@@ -245,7 +245,7 @@ class game_state : public math_equation {
     while ((key = get_input()) == 0) {
        key = get_input();
        if (join_thread) break;
-       std::this_thread::sleep_for(std::chrono::milliseconds(50));
+       std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
     if (key == '1') {user_answer = option_1;
                   join_thread = true;
@@ -282,11 +282,18 @@ class game_state : public math_equation {
 
   void timer () {
     time_up = false; //resetting the flag
-
-    for (int i = 0; i < time_duration_sec; i++ ) {
+    for (int i = time_duration_sec; i >= 0; i-- ) {
       if (join_thread == true) break;
+      if (i >= 10) {  // double digit  printing,
+      move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+      std::cout << i ;
+      }
+      else { // if number is single digit printing a empty space before digit so number is erased properly
+        move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+        std::cout << " " << i ; 
+      }
       std::this_thread::sleep_for(std::chrono::seconds(1));
-      if (i == time_duration_sec - 1) {time_up = true;} // to print it later storing data in a flag
+       if (i == 0) {time_up = true;} // to print it later storing data in a flag
     }
     join_thread = true;
   }
@@ -347,39 +354,62 @@ class game_ui : public game_state {
   ~game_ui () {
 
   }
+  void set_colour (std::string_view a) {
+    if (a == "red") {std::cout << "\033[31m";}
+    else if (a == "green") {std::cout << "\033[32m";}
+    else if (a == "yellow") {std::cout << "\033[33m";}
+    else if (a == "blue") {std::cout << "\033[34m";}
+    else if (a == "cyan") {std::cout << "\033[36m";}
+    else if (a == "magenta") {std::cout << "\033[35m";}
+    else if (a == "reset") {std::cout << "\033[0m";}
+  }
+
 
   void print_question() {
      get_terminal_size();
      border_around_question();
+     set_colour ("yellow");
      move_cursor ((terminal_width/2 - (total_row/2 + 13)) , terminal_height/4);
      std::cout << "{QUESTION} : ";
       for (int i = 0; i < total_row; i++) {
         std::cout << equation[i];
       }
       std::cout << " = ?" << std::endl;
+      set_colour("reset");
   }
 
   void print_options () {
+    set_colour("cyan");
     get_terminal_size();
     move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 2);
     std::cout << option_1 << "     " << option_2 << std::endl;
     move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 3);
     std::cout << option_3 << "     " << option_4 << std::endl;
+    set_colour("reset");
   }
 
   void print_score () {
+    get_terminal_size();
+    move_cursor((terminal_width/2 - (total_row/2 + 2)) , terminal_height/4 + 9);
+    set_colour("magenta");
     std::cout << "[SCORE : " << score << "]" << std::endl;
+    move_cursor((terminal_width/2 - (total_row/2 + 1)) , terminal_height/4 + 10);
+    print_streak();
+    std::cout << std::endl;
+    set_colour("reset");
   }
 
   void print_lifes () {
      get_terminal_size();
      move_cursor((terminal_width/2 - (total_row/2 + 10)) , terminal_height/4-4);
+     set_colour("red");
      std::cout << "[HEALTH-BAR] : ";
      if (player_heart == 0) std::cout << "    ";
      else {
       for (int i = 0 ; i < player_heart ; i++) {
       std::cout << "[()]";
       }
+      set_colour("reset");
      }
     std::cout << std::endl;
   }
@@ -388,7 +418,7 @@ class game_ui : public game_state {
 
     get_terminal_size();
     move_cursor ((terminal_width/2 - (total_row/2 + 1) ) , terminal_height/4 + 4);
-
+    set_colour("blue");
     if (time_up) std::cout << "[TIMES-UP!]" << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(700));
 
@@ -396,24 +426,31 @@ class game_ui : public game_state {
     move_cursor ((terminal_width/2 - (total_row/2 + 3)) , terminal_height/4 + 5);
 
     if (user_answer == answer) {
+      set_colour("green");
       std::cout << "[CORRECT-ANSWER!]" << std::endl;
     }
     else if (user_answer != answer && user_answer != 1000000 ) {
+      set_colour("red");
       std::cout << "[WRONG-ANSWER!]" << std::endl;
     }
     else if (user_answer == 1000000) {
+      set_colour ("red");
       std::cout << "  [NO ANSWER]" << std::endl;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    set_colour ("reset");
   }
 
   void print_streak () {
     if (streak >= 3) {
+      set_colour("green");
       std::cout << "STREAK x" << streak << std::endl;
+      set_colour("reset");
     }
   }
 
   void border_around_question () {
+    set_colour("red");
     //upper border
     move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 - 2);
     for (int i = 0; i <= 32 + total_row ; i++) {
@@ -437,6 +474,17 @@ class game_ui : public game_state {
       std::cout << ":";
     }
 
+    // border around timer
+     move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+     for (int i =  (terminal_height/4 - 1)  ; i <= (terminal_height/4 ); i++) {
+       move_cursor ((terminal_width/2 - (total_row/2 - 19)) , i);
+      std::cout << ":" << std::endl;
+     }  
+    move_cursor ((terminal_width/2 - (total_row/2 - 19)) , terminal_height/4);
+    for (int i = 0; i <= 4 ; i++) {
+      std::cout << ":";
+    }
+    set_colour("reset");
   }
 
   void question_ui() {
@@ -445,6 +493,7 @@ class game_ui : public game_state {
       generate_new_equation();  //but we will rewrite the question for styling purpose
       print_question();
       print_lifes();
+      print_score();
       solve_equation();
       generate_options();
       print_options();  
@@ -469,6 +518,17 @@ class game_ui : public game_state {
       if(player_quit||game_end) break;  //ending the program when player chooses to, and naturally end games when life is zero,
     }
   }
+
+  private : 
+    //colours for terminal
+   std::string red     = "red";
+   std::string green   = "green";
+   std::string yellow  = "yellow";
+   std::string blue    = "blue";
+   std::string cyan    = "cyan";
+   std::string magenta = "magenta";
+   std::string reset   = "reset";
+
 
 };
 
