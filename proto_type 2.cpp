@@ -8,27 +8,20 @@
 #include <cstdlib>
 #include <atomic>
 #include <string_view>
+#include <fstream>
 
 
 class math_equation {
     
     public : 
-
+    //equation is used in raII method,created in constructor and deleted in destructos,so its memory safe
     math_equation () {
-    // initialising the array as empty
-    for (int i = 0;  i < total_row ; i++) {
-        equation [i] = "empty";
-        }
-
-    // filling in with data
-    for (int i = 0; i < total_row ; i++) {
-    if (i % 2 == 0) equation [i] = random_number(); //put a number in odd position  
-    else equation[i] = random_operator(); // put a operator in even position
-      } // so equation will look number op number op number like this
+      equation = new std::string [total_row];
      }
 
      ~math_equation () {
-
+      delete equation;
+      equation = nullptr;
      }
 
     int str_to_int (std::string a) {
@@ -175,11 +168,12 @@ class math_equation {
     int previous_number = 0;
     int next_number = 0; 
     int answer = 0;
+    // equation data
+    int number = 4;
+    int op = number-1;
+    int total_row = number+op;
 
-    static constexpr int number = 4;
-    static constexpr int op = number-1;
-    static constexpr int total_row = number+op;
-    std::string equation [total_row] ;
+    std::string* equation = nullptr;
     // to asign this array,its lenth must be known at compile time
     // so we are  using static (means only one copy of the var for all objs of this class ) and 
     //constexpr (means value is known at compile time)
@@ -236,7 +230,7 @@ class game_state : public math_equation {
     return _getch();
   }
 
-  void handle_input () {
+  void handle_keyboard_input () {
     user_answer = 1000000; //setting it unnecesarily high so if user doesnot answer the default ans wont be correct ans
     join_thread = false;
     std::cout << "\033[?25l";
@@ -266,6 +260,52 @@ class game_state : public math_equation {
     }
   }
 
+   void handle_mouse_inputs() {
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE); //getting a handle for input
+    if (!hInput) return;  // if cannot get a handle return
+    DWORD prev_mode;
+    GetConsoleMode(hInput, &prev_mode);   //getting current mode and flags and storing it in previous mode
+    //quick edit mode is on by default
+    // Disable Quick Edit & enable mouse input
+
+    DWORD new_mode = prev_mode;  // making a new mode will assign it later
+    new_mode &= ~ENABLE_QUICK_EDIT_MODE;   //diabling quick edit mode of windows,quick edit mode uses the mouse input for text
+    // selection in terminal,but we need mouse clicks for our own input system
+    new_mode |= ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS; //enabbling mouse input in terminal,alsp extended flags so we can
+    // edit the inputs accordint to our needs
+    SetConsoleMode(hInput, new_mode); // setting console mode here and removing quick edit mode
+
+    INPUT_RECORD record;  //to store input
+    DWORD events;  // to detect a event like keypress , mouse click
+
+    DWORD prevButtonState = 0;
+    while (true) {
+        ReadConsoleInput(hInput, &record, 1, &events); //  now read input from console , it is blocking type input not async
+
+        if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
+            int col = record.Event.MouseEvent.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
+            // internally
+            int row = record.Event.MouseEvent.dwMousePosition.Y;
+            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click
+
+            // Detect **new left click**
+            if ((state & FROM_LEFT_1ST_BUTTON_PRESSED) && !(prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)) { // checking if left button is pressed
+                // and also making sure its not from before as we r using statebased detection not async ones
+            }
+            // Detect **new right click**
+            else if ((state & RIGHTMOST_BUTTON_PRESSED) && !(prevButtonState & RIGHTMOST_BUTTON_PRESSED)) {
+            }
+            else {
+               std::cout << "\rMouse over cell:     (" << col << ", " << row << ")   " << std::flush;
+            }
+
+            prevButtonState = state;   //refreshing state for new input
+        }
+    }
+    SetConsoleMode(hInput,prev_mode);  // re enabling prev mode also flags are reset
+}
+
+
   void update_score_and_hearts() {
     if (user_answer == answer) {
       score++;
@@ -279,11 +319,25 @@ class game_state : public math_equation {
     }
   }
 
+  void update_high_score () {
+    std::ifstream file ("math_mania_highscore.txt");
+    if (!file){
+      std::ofstream file ("math_mania_highscore.txt");
+      file << high_score;
+    }
+    file >> high_score;
+    if (score > high_score) {
+      std::ofstream file ("math_mania_highscore.txt");
+      file << score;
+       move_cursor((terminal_width/2 - (total_row/2 + 5)) , terminal_height/4 + 10);
+       std::cout << "[NEW HIGH-SCORE!]" << std::endl;
+    }
+    file.close();
+  }
 
   void timer () {
     time_up = false; //resetting the flag
     for (int i = time_duration_sec; i >= 0; i-- ) {
-      if (join_thread == true) break;
       if (i >= 10) {  // double digit  printing,
       move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
       std::cout << i ;
@@ -292,10 +346,14 @@ class game_state : public math_equation {
         move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
         std::cout << " " << i ; 
       }
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-       if (i == 0) {time_up = true;} // to print it later storing data in a flag
+      
+      if(!join_thread) std::this_thread::sleep_for(std::chrono::seconds(1)); // if join thread is true 
+      // means input is recived then no sleep delay 
+       else {break;} // immediately break
+
+       if (i == 0) {time_up = true;  //to print it later storing data in a flag
+           join_thread = true;} // if times up mark join join thread as true
     }
-    join_thread = true;
   }
 
   void game_quit () {
@@ -326,6 +384,7 @@ class game_state : public math_equation {
   protected :  
   int user_answer = 0;
   int score = 0; //answer streak ,reward user based on continuous correct answers
+  int high_score = 0;
   int streak = 0;
   int player_heart = 3; // life system
   int option_1 = 0;
@@ -488,9 +547,8 @@ class game_ui : public game_state {
   }
 
   void question_ui() {
-     system("cls"); // clear the screen so new question can appear on same position
-      //constructor generates first equation :)
-      generate_new_equation();  //but we will rewrite the question for styling purpose
+      system("cls"); // clear the screen so new question can appear on same position
+      generate_new_equation();
       print_question();
       print_lifes();
       print_score();
@@ -500,7 +558,7 @@ class game_ui : public game_state {
   }
 
   void answer_ui() {
-    std::thread t1(&game_state::handle_input, this);//because handle input or timer are not independent global func
+    std::thread t1(&game_state::handle_keyboard_input, this);//because handle input or timer are not independent global func
       //they are functions of this obj i cant use them directly,here we basically say handle input is a func
       // for game_state  class and call it for current obj using this pointer
       std::thread t2 (&game_state::timer,this);
@@ -511,13 +569,97 @@ class game_ui : public game_state {
       if(player_heart == 0) print_lifes(); //printing life before ending game
   }
 
-  void game_loop () {
+  void play() {
+    //resetting flags for replay
+    score = 0;
+    player_heart = 3;
+    game_end = false;
+    player_quit = false;
+    streak = 0;
+
     while (true) {
       question_ui();
       answer_ui();
       if(player_quit||game_end) break;  //ending the program when player chooses to, and naturally end games when life is zero,
     }
+      update_high_score();
   }
+
+  void rulebook() {
+    system("cls");
+    get_terminal_size();
+    move_cursor(terminal_width / 2 - 6 , terminal_height / 8);
+    set_colour("yellow");
+    std::cout << ":[RULE-B00K]:" << std::endl;
+    for (int i = 0;i < terminal_width/2;i++) {
+      std::cout << "><";
+    }
+
+    set_colour("red");
+    move_cursor(4,terminal_height/8 + 3);
+    std::cout << "{1} : RANDOM QUESTIONS ARE GENERATED DEPENDING ON DIFFICULTY,4 OPTIONS ARE GIVEN, TO ANSWER ," << std::endl;
+    move_cursor(4,terminal_height/8 + 4);
+    std::cout << "      PRESS CORRESPONDING OPTION NUMBER ON KEYBOARD (1,2,3,4) AND YOUR ANSWER WILL BE DETECTED." << std::endl;
+    move_cursor(4,terminal_height/8 + 5);
+    std::cout << "{2} : FOR EVERY CORRECT ANSWER GET +1 SCORE AND FOR 5 CORRECT ANSWER STREAK GET A HEART(MAXIMUM 5)," << std::endl;
+    move_cursor(4,terminal_height/8 + 6);
+    std::cout << "      FOR EVERY WRONG ANSWER LOSE A HEART AND CURRENT STREAK,GAME ENDS WHEN PLAYER HAS NO HEART LEFT." << std::endl;
+    move_cursor(4,terminal_height/8 + 7);
+    std::cout << "{3} : PLAYER GETS A FIXED AMOUNT OF TIME TO SOLVE A QUESTION ,TIMER IS DISPLAYED ON TOP RIGHT CORNER." << std::endl;
+    move_cursor(4,terminal_height/8 + 8);
+    std::cout << "{4} : IN MAIN MENU MOUSE CLICKS ARE ALLOWED BUT IN GAME ONLY KEYBOARD INPUTS ARE ALLOWED." << std::endl;
+    move_cursor(4,terminal_height/8 + 9);
+    std::cout << "{5} : PRESS Q TO END THE CURRENT GAME AND RETURN TO MAIN MENU." << std::endl;
+    move_cursor(0,terminal_height/8 + 9 + 2);
+
+    set_colour("yellow");
+    for (int i = 0;i < terminal_width/2;i++) {
+      std::cout << "><";
+    }
+
+    set_colour ("reset");
+
+    }
+
+   void check_high_score() {
+    system("cls");
+    get_terminal_size();
+    set_colour ("cyan");
+    move_cursor(0,terminal_height/8 - 2);
+    for (int i = 0;i < terminal_width/2;i++) {
+      std::cout << "><";
+    }
+
+    set_colour ("green");
+    move_cursor(terminal_width/2 - 7 , terminal_height/8);
+    std::ifstream file ("math_mania_highscore.txt");
+    if (!file) {
+      std::cout << ":{HIGHSCORE}: 0" << std::endl;
+    }
+    else {
+      file >> high_score;
+       std::cout << ":{HIGHSCORE}: " << high_score << std::endl;   
+    }
+
+    set_colour("cyan");
+    move_cursor(0,terminal_height/8 + 2);
+    for (int i = 0;i < terminal_width/2;i++) {
+      std::cout << "><";
+    }
+    set_colour("reset");
+
+   }
+
+   void game_menu () {
+    int a;
+    while (true) {
+    std::cin >> a;
+    if (a==1) play();
+    if (a==2) rulebook();
+    if (a==3) check_high_score();
+    if (a==4) break;
+    }
+   }
 
   private : 
     //colours for terminal
@@ -533,6 +675,6 @@ class game_ui : public game_state {
 };
 
 int main () {
-  game_ui play_game;
-  play_game.game_loop();
+  game_ui game;
+  game.game_menu();
 }
