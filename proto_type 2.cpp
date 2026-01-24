@@ -95,6 +95,13 @@ class math_equation {
     else equation[i] = random_operator(); // put a operator in even position
     } // so equation will look number op number op number like this
 
+      //copying current question in question array with emptyspaces
+       for (int i = 0;  i < max_row ; i++) {
+        copy_question [i] = equation[i];
+        }
+
+
+
       // reseting the variables
 
      divide_op_present = true;
@@ -220,6 +227,11 @@ class math_equation {
     std::string previous_op = "empty";  //used for unary minus detection later
 
    std::mt19937 gen{std::random_device{}()}; //random number generator engine
+
+    std::string copy_question [11];  // a array that we will copy current question 
+  // and print the question from here as our original array will be used in solving
+  // so it will contain result and many other things and during window resize 
+  //need to redraw question
 
 };
 
@@ -358,6 +370,10 @@ class game_state : public math_equation {
 
              prevButtonState = state;   //refreshing state for new input 
         }
+
+        if (record.EventType == WINDOW_BUFFER_SIZE_EVENT) { // check if window is resized
+            return 5;
+        }
     } // while
 } // func
 
@@ -385,19 +401,28 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
       get_terminal_size(); //get terminal size for accurate data of height and width of terminal
         ReadConsoleInput(hInput, &record, 1, &events); //  now read input from console , it is blocking type input not async
 
-        if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
-            int col = record.Event.MouseEvent.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
-            // internally
-            int row = record.Event.MouseEvent.dwMousePosition.Y;
-            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click in state
+        auto& stored_event = record.Event.MouseEvent;  //storing the mouse event in a variable
 
-            // Detect **new left click**
-            if ((state & FROM_LEFT_1ST_BUTTON_PRESSED) && !(prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)) { // checking if left button is pressed
+        if (stored_event.dwEventFlags != 0) continue;   //if its scroll or movement type event skip the current iteration
+
+
+        if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
+            int col = stored_event.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
+            // internally
+            int row = stored_event.dwMousePosition.Y;
+            DWORD state = stored_event.dwButtonState; //store the click in state
+
+            bool current_left = state & FROM_LEFT_1ST_BUTTON_PRESSED;  //if its left click store in this bool
+            bool previous_left = prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED; // also track if it was a left click
+            //from before/ previous iterations in this bool,so sticky keys doesnot happens
+
+            if (current_left && !previous_left) { // checking if left button is pressed
                 // and also making sure its not from prvious state as we r using blocking input
                 
                  if ((col >= width_left && col <= width_right) && row == height)
                  {SetConsoleMode(hInput,prev_mode);  // re enabling prev mode also flags are reset because we might return after this
-                   return;}
+                   return ;}
+                   
             }
 
              prevButtonState = state;   //refreshing state for new input
@@ -441,9 +466,9 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
   void timer () {
     time_up = false; //resetting the flag
     for (int i = time_duration_sec; i >= 0; i-- ) {
-      if (i >= 10) {  // double digit  printing,
-      move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
-      std::cout << i ;
+      if (i >= 10) {  // double digit  printing
+       move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
+       std::cout << i ;
       }
       else { // if number is single digit printing a empty space before digit so number is erased properly
         move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
@@ -455,7 +480,8 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
        else {break;} // immediately break
 
        if (i == 0) {time_up = true;  //to print it later storing data in a flag
-           join_thread = true;} // if times up mark join join thread as true
+
+           join_thread = true;} // if times up mark  join thread as true
     }
   }
 
@@ -500,10 +526,10 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
   bool game_end = false;
   bool player_quit = false;
   bool time_up = false;
+  bool window_resized = false; //if user changes terminal_size
 
   int terminal_height = 0;
   int terminal_width = 0;
-
   int border_row = 7;  //for allignment of ui border
 
 };
@@ -537,11 +563,24 @@ class game_ui : public game_state {
      move_cursor ((terminal_width/2 - (total_row/2 + 13)) , terminal_height/4);
      std::cout << "{QUESTION} : ";
       for (int i = 0; i < total_row; i++) {
-        std::cout << equation[i];
+        std::cout << equation [i];
       }
       std::cout << " = ?" << std::endl;
       set_colour("reset");
   }
+
+    void print_copy_question() {
+     get_terminal_size();
+     border_around_question();
+     set_colour ("yellow");
+     move_cursor ((terminal_width/2 - (total_row/2 + 13)) , terminal_height/4);
+     std::cout << "{QUESTION} : ";
+      for (int i = 0; i < total_row; i++) {
+        std::cout << copy_question [i];
+      }
+      std::cout << " = ?" << std::endl;
+       set_colour("reset");
+     }
 
   void print_options () {
     set_colour("cyan");
@@ -662,6 +701,26 @@ class game_ui : public game_state {
     return ;
   }
 
+  void resize_window() {
+    while (!join_thread) {
+    int current_height = terminal_height;
+    int current_width = terminal_width;
+    //store current terminal information
+    get_terminal_size();//then call for get terminal size function
+    //if there are changes
+     if ((current_height != terminal_height) || (current_width != terminal_width)) {
+      //clear screen and redraw
+      system("cls");
+      print_copy_question();
+      print_options();
+      print_lifes();
+      print_score();
+     }
+     if (!join_thread) std::this_thread::sleep_for(std::chrono::milliseconds(50)); //if jointhread flag is not true
+     //sleep current thread for a small duration for less cpu throttling
+    }
+  }
+
   void question_ui() {
       system("cls"); // clear the screen so new question can appear on same position
       generate_new_equation();
@@ -677,21 +736,34 @@ class game_ui : public game_state {
     std::thread t1(&game_state::handle_keyboard_input, this);//because handle input or timer are not independent global func
       //they are functions of this obj i cant use them directly,here we basically say handle input is a func
       // for game_state  class and call it for current obj using this pointer
-      std::thread t2 (&game_state::timer,this);
+
+      std::thread t2 (&game_state::timer,this);  //handles timer for eacg question
+
+      std::thread t3 (&game_ui::resize_window,this);  //checks if window/terminal is resized
+
       t1.join();
       t2.join();
+      t3.join();
+
       answer_feedback();
       update_score_and_hearts();
       if(player_heart == 0) print_lifes(); //printing life before ending game
   }
 
   void play_game() {
+  
     print_difficulty();
-
     difficulty = handle_mouse_clicks();
 
-    if (difficulty == 4) main_menu();   //it loos weird but its the 4th button used as back buton
-    //it doesnot have anything to do with difficulty
+    //dynamic window resizing,if window is resized handle_mouse_clicks returns 5 
+    // so if that happens we redraw,this way buttons will also be repositioned
+    while (difficulty == 5 ){
+    system("cls");
+    print_difficulty();
+    difficulty = handle_mouse_clicks();
+    }
+
+    if (difficulty == 4) return;  //return to main menu
 
     difficulty_scaling();
 
@@ -710,7 +782,7 @@ class game_ui : public game_state {
       time_duration_sec = 10;
     }
 
-    //resetting flags for replay
+   //resetting flags for replay
     score = 0;
     game_end = false;
     player_quit = false;
@@ -757,6 +829,8 @@ class game_ui : public game_state {
     }
      set_colour ("reset");
 
+     //functional back mouse cllick button 
+
      print_functionable_back_button(terminal_width / 2 - 4,terminal_height / 8 + 14);
 
    }
@@ -789,7 +863,7 @@ class game_ui : public game_state {
     set_colour ("reset");
 
     print_functionable_back_button(terminal_width / 2 - 3,terminal_height / 8 + 5);
-    //functional back mouse cllick button 
+
   }
 
    void print_menu() {
@@ -887,6 +961,9 @@ class game_ui : public game_state {
     else if (mouse_input==2) rulebook();
     else if (mouse_input==3) check_high_score();
     else if (mouse_input==4) return;
+    else if (mouse_input==5) continue; // handle mouse input returns 5 when wimdow is resized
+    // so this continue statement does nothing just skip current iteration and at next iteration
+    //window is redrawn
     }
    }
 
