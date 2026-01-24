@@ -15,14 +15,21 @@ class math_equation {
     
     public : 
     //equation is used in raII method,created in constructor and deleted in destructos,so its memory safe
+    //i want dynamic difficulty scaling meaning user should be able to alter difficulty from within
+      //the obj,but i also want my dynamic question array to be created at constructor i cant do that normally
+      // here is what i thought as solution :
+      //as i cant modify the size of the array after obj creation
+      //i will generate the maximum size of array user can that will be 6 number 5 operator,
+      // and if user chooses easy or medium difficulty i will mark the remaining slot with placeholder
+      //that my algotythm already ignores
     math_equation () {
-      equation = new std::string [total_row];
+      equation = new std::string [max_row];
      }
 
-     ~math_equation () {
-      delete equation;
+    ~math_equation () {
+      delete[] equation;
       equation = nullptr;
-     }
+      }
 
     int str_to_int (std::string a) {
     int x = std::stoi(a);
@@ -53,13 +60,58 @@ class math_equation {
     return random_num;
     }
 
+    void difficulty_scaling () {
 
+      if (difficulty == 1) {  //easy
+        number = 4;
+      }
+
+      else if (difficulty == 2) {  //medium
+        number = 5;
+      }
+
+      else if (difficulty == 3) {  //hard
+        number = 6;
+      }
+
+      else if (difficulty > 3) return;//simply return on wrong input; 
+
+      op = number-1;
+      total_row = number+op;
+      
+    }
+
+    //generating question
+    void generate_new_equation() {
+
+      //empty whole existing array
+      for (int i = 0;  i < max_row ; i++) {
+        equation [i] = "empty";
+        }
+
+    // filling in with data
+   for (int i = 0; i < total_row ; i++) {  //using total row here and that will be decided from difficulty scaling
+    if (i % 2 == 0) equation [i] = random_number(); //put a number in odd position  
+    else equation[i] = random_operator(); // put a operator in even position
+    } // so equation will look number op number op number like this
+
+      // reseting the variables
+
+     divide_op_present = true;
+     multiply_op_present = true;
+     addition_op_present = true;
+     subtraction_op_present = true;
+     answer = 0;
+
+    }
+
+    //algorithm to solve the equation with precedence
 
     void precedence_solving (bool& a , std::string_view b) {
-    while (a == true) {  // it will check for multiplr times if it find 1 instance of b;
+     while (a == true) {  // it will check for multiplr times if it find 1 instance of b;
     	previous_op = "empty";  //resetting previous op
 
-    for (int i = 0;i < total_row;i++) {
+     for (int i = 0;i < total_row;i++) {
 
        if (equation[i] == "empty") continue;  //if string is empty ignore
 
@@ -141,37 +193,20 @@ class math_equation {
       }
     }
 
-    void generate_new_equation() {
-      //empty existing  array
-      for (int i = 0;  i < total_row ; i++) {
-        equation [i] = "empty";
-        }
-
-    // filling in with data
-   for (int i = 0; i < total_row ; i++) {
-    if (i % 2 == 0) equation [i] = random_number(); //put a number in odd position  
-    else equation[i] = random_operator(); // put a operator in even position
-    } // so equation will look number op number op number like this
-
-      // reseting the variables
-
-     divide_op_present = true;
-     multiply_op_present = true;
-     addition_op_present = true;
-     subtraction_op_present = true;
-     answer = 0;
-
-    }
-
 
     protected :
     int previous_number = 0;
     int next_number = 0; 
     int answer = 0;
+
+    int difficulty = 0;  //will use this as a flag to use in future depending on difficulty;
+
     // equation data
-    int number = 4;
-    int op = number-1;
+    int number = 0;   
+    int op = 0;
     int total_row = number+op;
+
+    int max_row = 11;   // maximum possible number in hard mode (6 number 5 operator)
 
     std::string* equation = nullptr;
     // to asign this array,its lenth must be known at compile time
@@ -182,7 +217,7 @@ class math_equation {
     bool multiply_op_present = true;
     bool addition_op_present = true;
     bool subtraction_op_present = true;
-    std::string previous_op = "empty";
+    std::string previous_op = "empty";  //used for unary minus detection later
 
    std::mt19937 gen{std::random_device{}()}; //random number generator engine
 
@@ -260,7 +295,7 @@ class game_state : public math_equation {
     }
   }
 
-  int handle_mouse_clicks_main_menu() {
+  int handle_mouse_clicks() {
     HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE); //getting a handle for input
     if (!hInput) return 0;  // if cannot get a handle return
     DWORD prev_mode;
@@ -284,13 +319,23 @@ class game_state : public math_equation {
         ReadConsoleInput(hInput, &record, 1, &events); //  now read input from console , it is blocking type input not async
 
         if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
-            int col = record.Event.MouseEvent.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
-            // internally
-            int row = record.Event.MouseEvent.dwMousePosition.Y;
-            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click in state
 
-            // Detect **new left click**
-            if ((state & FROM_LEFT_1ST_BUTTON_PRESSED) && !(prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)) { // checking if left button is pressed
+          auto& stored_event = record.Event.MouseEvent;  //storing the mouse event in a variable
+
+          if (stored_event.dwEventFlags != 0) continue;   //if its scroll or movement type event skip the current iteration
+
+          //if stored event is a click
+
+            int col =stored_event.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
+            // internally
+            int row = stored_event.dwMousePosition.Y;
+            DWORD state = stored_event.dwButtonState; //store the click in state
+
+            bool current_left = state & FROM_LEFT_1ST_BUTTON_PRESSED;  //if its left click store in this bool
+            bool previous_left = prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED; // also track if it was a left click
+            //from before/ previous iterations in this bool,so sticky keys doesnot happens
+
+            if (current_left && !previous_left) { // checking if left button is pressed
                 // and also making sure its not from prvious state as we r using blocking input
                 
                  if ((col >= terminal_width/2+2 && col <= terminal_width/2+10) && row == terminal_height/4 + 1)
@@ -311,8 +356,7 @@ class game_state : public math_equation {
 
                  }
 
-             prevButtonState = state;   //refreshing state for new input
-             std::this_thread::sleep_for(std::chrono::milliseconds(25)); //sleeping the thread for less cpu hogging 
+             prevButtonState = state;   //refreshing state for new input 
         }
     } // while
 } // func
@@ -398,11 +442,11 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
     time_up = false; //resetting the flag
     for (int i = time_duration_sec; i >= 0; i-- ) {
       if (i >= 10) {  // double digit  printing,
-      move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+      move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
       std::cout << i ;
       }
       else { // if number is single digit printing a empty space before digit so number is erased properly
-        move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+        move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
         std::cout << " " << i ; 
       }
       
@@ -452,13 +496,15 @@ void mouse_click_back_button (int width_left,int width_right,int height) {
   int option_4 = 0;
   std::atomic<bool> join_thread = false; // using this in 2 func , handle input and timer
   //to avoid race condition using atomic bool
-  int time_duration_sec = 10; // time limit for each question on screen
+  int time_duration_sec = 15; // time limit for each question on screen
   bool game_end = false;
   bool player_quit = false;
   bool time_up = false;
 
   int terminal_height = 0;
   int terminal_width = 0;
+
+  int border_row = 7;  //for allignment of ui border
 
 };
 
@@ -500,19 +546,19 @@ class game_ui : public game_state {
   void print_options () {
     set_colour("cyan");
     get_terminal_size();
-    move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 2);
+    move_cursor ((terminal_width/2 - border_row/2 ) , terminal_height/4 + 2);
     std::cout << option_1 << "     " << option_2 << std::endl;
-    move_cursor ((terminal_width/2 - total_row/2 ) , terminal_height/4 + 3);
+    move_cursor ((terminal_width/2 - border_row/2 ) , terminal_height/4 + 3);
     std::cout << option_3 << "     " << option_4 << std::endl;
     set_colour("reset");
   }
 
   void print_score () {
     get_terminal_size();
-    move_cursor((terminal_width/2 - (total_row/2 + 2)) , terminal_height/4 + 9);
+    move_cursor((terminal_width/2 - (border_row/2 + 2)) , terminal_height/4 + 9);
     set_colour("magenta");
     std::cout << "[SCORE : " << score << "]" << std::endl;
-    move_cursor((terminal_width/2 - (total_row/2 + 1)) , terminal_height/4 + 10);
+    move_cursor((terminal_width/2 - (border_row/2 + 1)) , terminal_height/4 + 10);
     print_streak();
     std::cout << std::endl;
     set_colour("reset");
@@ -520,7 +566,7 @@ class game_ui : public game_state {
 
   void print_lifes () {
      get_terminal_size();
-     move_cursor((terminal_width/2 - (total_row/2 + 10)) , terminal_height/4-4);
+     move_cursor((terminal_width/2 - (border_row/2 + 10)) , terminal_height/4-4);
      set_colour("red");
      std::cout << "[HEALTH-BAR] : ";
      if (player_heart == 0) std::cout << "    ";
@@ -536,13 +582,13 @@ class game_ui : public game_state {
   void answer_feedback() {
 
     get_terminal_size();
-    move_cursor ((terminal_width/2 - (total_row/2 + 1) ) , terminal_height/4 + 4);
+    move_cursor ((terminal_width/2 - (border_row/2 + 1) ) , terminal_height/4 + 4);
     set_colour("blue");
     if (time_up) std::cout << "[TIMES-UP!]" << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(700));
 
     get_terminal_size();
-    move_cursor ((terminal_width/2 - (total_row/2 + 3)) , terminal_height/4 + 5);
+    move_cursor ((terminal_width/2 - (border_row/2 + 3)) , terminal_height/4 + 5);
 
     if (user_answer == answer) {
       set_colour("green");
@@ -571,35 +617,35 @@ class game_ui : public game_state {
   void border_around_question () {
     set_colour("red");
     //upper border
-    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 - 2);
-    for (int i = 0; i <= 32 + total_row ; i++) {
+    move_cursor ((terminal_width/2 - (border_row/2 + 16)) , terminal_height/4 - 2);
+    for (int i = 0; i <= 32 + border_row ; i++) {
       std::cout << ":";
     }
     //left border
-    move_cursor ((terminal_width/2 - (total_row/2 + 17)) , terminal_height/4 - 2);
+    move_cursor ((terminal_width/2 - (border_row/2 + 17)) , terminal_height/4 - 2);
      for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 9); i++) {
-       move_cursor ((terminal_width/2 - (total_row/2 + 17)) , i);
+       move_cursor ((terminal_width/2 - (border_row/2 + 17)) , i);
       std::cout << ":" << std::endl;
     }
      //right border
-     move_cursor ((terminal_width/2 - (total_row/2 - 15)) , terminal_height/4 - 2);
+     move_cursor ((terminal_width/2 - (border_row/2 - 15)) , terminal_height/4 - 2);
      for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 9); i++) {
-       move_cursor ((terminal_width/2 - (total_row/2 - 24)) , i);
+       move_cursor ((terminal_width/2 - (border_row/2 - 24)) , i);
       std::cout << ":" << std::endl;
     }
     //lower border
-    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 + 7);
-    for (int i = 0; i <= 32 + total_row ; i++) {
+    move_cursor ((terminal_width/2 - (border_row/2 + 16)) , terminal_height/4 + 7);
+    for (int i = 0; i <= 32 + border_row ; i++) {
       std::cout << ":";
     }
 
     // border around timer
-     move_cursor ((terminal_width/2 - (total_row/2 - 21)) , terminal_height/4 - 1);
+     move_cursor ((terminal_width/2 - (border_row/2 - 21)) , terminal_height/4 - 1);
      for (int i =  (terminal_height/4 - 1)  ; i <= (terminal_height/4 ); i++) {
-       move_cursor ((terminal_width/2 - (total_row/2 - 19)) , i);
+       move_cursor ((terminal_width/2 - (border_row/2 - 19)) , i);
       std::cout << ":" << std::endl;
      }  
-    move_cursor ((terminal_width/2 - (total_row/2 - 19)) , terminal_height/4);
+    move_cursor ((terminal_width/2 - (border_row/2 - 19)) , terminal_height/4);
     for (int i = 0; i <= 4 ; i++) {
       std::cout << ":";
     }
@@ -639,10 +685,33 @@ class game_ui : public game_state {
       if(player_heart == 0) print_lifes(); //printing life before ending game
   }
 
-  void play() {
+  void play_game() {
+    print_difficulty();
+
+    difficulty = handle_mouse_clicks();
+
+    if (difficulty == 4) main_menu();   //it loos weird but its the 4th button used as back buton
+    //it doesnot have anything to do with difficulty
+
+    difficulty_scaling();
+
+    //additional perks of difficulty
+
+    if (difficulty == 1) {
+      player_heart = 4;
+      time_duration_sec = 20;
+    }
+    if (difficulty == 2) {
+      player_heart = 3;
+      time_duration_sec = 15;
+    }
+    if (difficulty == 3) {
+      player_heart = 3;
+      time_duration_sec = 10;
+    }
+
     //resetting flags for replay
     score = 0;
-    player_heart = 3;
     game_end = false;
     player_quit = false;
     streak = 0;
@@ -723,32 +792,32 @@ class game_ui : public game_state {
     //functional back mouse cllick button 
   }
 
-   void print_menu_border() {
+   void print_menu() {
     get_terminal_size();
     std::cout << "\033[?25l";
     set_colour("cyan");
 
     //border around main menu
     //upper border
-    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 - 2);
-    for (int i = 0; i <= 40 + total_row ; i++) {
+    move_cursor ((terminal_width/2 - (border_row/2 + 16)) , terminal_height/4 - 2);
+    for (int i = 0; i <= 40 + border_row ; i++) {
       std::cout << "#";
     }
     //left border
-    move_cursor ((terminal_width/2 - (total_row/2 + 17)) , terminal_height/4 - 2);
+    move_cursor ((terminal_width/2 - (border_row/2 + 17)) , terminal_height/4 - 2);
      for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
-       move_cursor ((terminal_width/2 - (total_row/2 + 17)) , i);
+       move_cursor ((terminal_width/2 - (border_row/2 + 17)) , i);
       std::cout << "#" << std::endl;
     }
      //right border
-     move_cursor ((terminal_width/2 - (total_row/2 - 15)) , terminal_height/4 - 2);
+     move_cursor ((terminal_width/2 - (border_row/2 - 15)) , terminal_height/4 - 2);
      for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
-       move_cursor ((terminal_width/2 - (total_row/2 - 31)) , i);
+       move_cursor ((terminal_width/2 - (border_row/2 - 31)) , i);
       std::cout << "#" << std::endl;
     }
     //lower border
     move_cursor ((terminal_width/2 - 4) - 15 , terminal_height/4 + 13);
-    for (int i = 0; i <= 40 + total_row ; i++) {
+    for (int i = 0; i <= 40 + border_row ; i++) {
       std::cout << "#";
     }
 
@@ -765,14 +834,56 @@ class game_ui : public game_state {
   
    }
 
+   void print_difficulty() {
+    get_terminal_size();
+    std::cout << "\033[?25l";
+    set_colour("red");
+
+    //border around main menu
+    //upper border
+    move_cursor ((terminal_width/2 - (border_row/2 + 16)) , terminal_height/4 - 2);
+    for (int i = 0; i <= 40 + border_row ; i++) {
+      std::cout << "#";
+    }
+    //left border
+    move_cursor ((terminal_width/2 - (border_row/2 + 17)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
+       move_cursor ((terminal_width/2 - (border_row/2 + 17)) , i);
+      std::cout << "#" << std::endl;
+    }
+     //right border
+     move_cursor ((terminal_width/2 - (border_row/2 - 15)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
+       move_cursor ((terminal_width/2 - (border_row/2 - 31)) , i);
+      std::cout << "#" << std::endl;
+    }
+    //lower border
+    move_cursor ((terminal_width/2 - 4) - 15 , terminal_height/4 + 13);
+    for (int i = 0; i <= 40 + border_row ; i++) {
+      std::cout << "#";
+    }
+
+    set_colour ("yellow");
+    //print menu options : 
+    move_cursor (terminal_width/2+2  , terminal_height/4 + 1);
+    std::cout << "{:EASY:}" << std::endl;
+    move_cursor (terminal_width/2  , terminal_height/4 + 4);
+    std::cout << " {:AVERAGE:}" << std::endl;
+    move_cursor (terminal_width/2  , terminal_height/4 + 7);
+    std::cout << "{:HARD-CORE:}" << std::endl;
+    move_cursor (terminal_width/2+2  , terminal_height/4 + 10);
+    std::cout << "{:BACK:}" << std::endl;
+  
+   }
+
    void main_menu () {
     while (true) {
     system("cls");
     get_terminal_size();
-    print_menu_border();
-    int mouse_input = handle_mouse_clicks_main_menu();
-    if (!mouse_input) handle_mouse_clicks_main_menu(); //keep calling if we cant get a handle as we return 0 for that
-    else if (mouse_input==1) play();
+    print_menu();
+    int mouse_input = handle_mouse_clicks();
+    if (!mouse_input) handle_mouse_clicks(); //keep calling if we cant get a handle as we return 0 for that
+    else if (mouse_input==1) play_game();
     else if (mouse_input==2) rulebook();
     else if (mouse_input==3) check_high_score();
     else if (mouse_input==4) return;
@@ -788,7 +899,6 @@ class game_ui : public game_state {
    std::string cyan    = "cyan";
    std::string magenta = "magenta";
    std::string reset   = "reset";
-
 
 };
 
