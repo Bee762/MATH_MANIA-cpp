@@ -233,7 +233,7 @@ class game_state : public math_equation {
   void handle_keyboard_input () {
     user_answer = 1000000; //setting it unnecesarily high so if user doesnot answer the default ans wont be correct ans
     join_thread = false;
-    std::cout << "\033[?25l";
+    std::cout << "\033[?25l";  // ansi escape code for hide cursor
     while (!join_thread) {
       char key = 0;
     while ((key = get_input()) == 0) {
@@ -260,9 +260,9 @@ class game_state : public math_equation {
     }
   }
 
-   void handle_mouse_inputs() {
+  int handle_mouse_clicks_main_menu() {
     HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE); //getting a handle for input
-    if (!hInput) return;  // if cannot get a handle return
+    if (!hInput) return 0;  // if cannot get a handle return
     DWORD prev_mode;
     GetConsoleMode(hInput, &prev_mode);   //getting current mode and flags and storing it in previous mode
     //quick edit mode is on by default
@@ -280,30 +280,89 @@ class game_state : public math_equation {
 
     DWORD prevButtonState = 0;
     while (true) {
+      get_terminal_size(); //get terminal size for accurate data of height and width of terminal
         ReadConsoleInput(hInput, &record, 1, &events); //  now read input from console , it is blocking type input not async
 
         if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
             int col = record.Event.MouseEvent.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
             // internally
             int row = record.Event.MouseEvent.dwMousePosition.Y;
-            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click
+            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click in state
 
             // Detect **new left click**
             if ((state & FROM_LEFT_1ST_BUTTON_PRESSED) && !(prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)) { // checking if left button is pressed
-                // and also making sure its not from before as we r using statebased detection not async ones
-            }
-            // Detect **new right click**
-            else if ((state & RIGHTMOST_BUTTON_PRESSED) && !(prevButtonState & RIGHTMOST_BUTTON_PRESSED)) {
-            }
-            else {
-               std::cout << "\rMouse over cell:     (" << col << ", " << row << ")   " << std::flush;
+                // and also making sure its not from prvious state as we r using blocking input
+                
+                 if ((col >= terminal_width/2+2 && col <= terminal_width/2+10) && row == terminal_height/4 + 1)
+                 {SetConsoleMode(hInput,prev_mode);  // re enabling prev mode also flags are reset because we might return after this
+                   return 1;}
+
+                 else if ((col >= terminal_width/2 && col <= terminal_width/2+14) && row == terminal_height/4 + 4)
+                  {SetConsoleMode(hInput,prev_mode);
+                   return 2;}
+
+                 else if ((col >= terminal_width/2 && col <= terminal_width/2+15) && row == terminal_height/4 + 7) 
+                 {SetConsoleMode(hInput,prev_mode);
+                   return 3;}
+
+                 else if ((col >= terminal_width/2+2 && col <= terminal_width/2+10) && row == terminal_height/4 + 10) 
+                 {SetConsoleMode(hInput,prev_mode);
+                   return 4;}
+
+                 }
+
+             prevButtonState = state;   //refreshing state for new input
+             std::this_thread::sleep_for(std::chrono::milliseconds(25)); //sleeping the thread for less cpu hogging 
+        }
+    } // while
+} // func
+
+//for back button making a overload
+void mouse_click_back_button (int width_left,int width_right,int height) {
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE); //getting a handle for input
+    if (!hInput) hInput = GetStdHandle(STD_INPUT_HANDLE);  // if cannot get a handle return
+    DWORD prev_mode;
+    GetConsoleMode(hInput, &prev_mode);   //getting current mode and flags and storing it in previous mode
+    //quick edit mode is on by default
+    // Disable Quick Edit & enable mouse input
+
+    DWORD new_mode = prev_mode;  // making a new mode will assign it later
+    new_mode &= ~ENABLE_QUICK_EDIT_MODE;   //diabling quick edit mode of windows,quick edit mode uses the mouse input for text
+    // selection in terminal,but we need mouse clicks for our own input system
+    new_mode |= ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS; //enabbling mouse input in terminal,alsp extended flags so we can
+    // edit the inputs accordint to our needs
+    SetConsoleMode(hInput, new_mode); // setting console mode here and removing quick edit mode
+
+    INPUT_RECORD record;  //to store input
+    DWORD events;  // to detect a event like keypress , mouse click
+
+    DWORD prevButtonState = 0;
+    while (true) {
+      get_terminal_size(); //get terminal size for accurate data of height and width of terminal
+        ReadConsoleInput(hInput, &record, 1, &events); //  now read input from console , it is blocking type input not async
+
+        if (record.EventType == MOUSE_EVENT) { // if recorded event is a mouse click
+            int col = record.Event.MouseEvent.dwMousePosition.X; // get the mouse position in terminal text grid,windows handles the mapping
+            // internally
+            int row = record.Event.MouseEvent.dwMousePosition.Y;
+            DWORD state = record.Event.MouseEvent.dwButtonState; //store the click in state
+
+            // Detect **new left click**
+            if ((state & FROM_LEFT_1ST_BUTTON_PRESSED) && !(prevButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)) { // checking if left button is pressed
+                // and also making sure its not from prvious state as we r using blocking input
+                
+                 if ((col >= width_left && col <= width_right) && row == height)
+                 {SetConsoleMode(hInput,prev_mode);  // re enabling prev mode also flags are reset because we might return after this
+                   return;}
             }
 
-            prevButtonState = state;   //refreshing state for new input
-        }
-    }
-    SetConsoleMode(hInput,prev_mode);  // re enabling prev mode also flags are reset
-}
+             prevButtonState = state;   //refreshing state for new input
+             std::this_thread::sleep_for(std::chrono::milliseconds(25)); //sleeping the thread for less cpu hogging 
+         }
+        
+      } //while
+    } //func
+
 
 
   void update_score_and_hearts() {
@@ -400,6 +459,7 @@ class game_state : public math_equation {
 
   int terminal_height = 0;
   int terminal_width = 0;
+
 };
 
 class game_ui : public game_state {
@@ -546,6 +606,16 @@ class game_ui : public game_state {
     set_colour("reset");
   }
 
+  void print_functionable_back_button(int width_left,int height) {
+    //functional back mouse cllick button 
+    move_cursor(width_left , height);
+    set_colour("yellow");
+    std::cout << ":{BACK}:" << std::endl;
+    mouse_click_back_button (width_left,width_left+8,height);
+    set_colour("reset");
+    return ;
+  }
+
   void question_ui() {
       system("cls"); // clear the screen so new question can appear on same position
       generate_new_equation();
@@ -616,10 +686,11 @@ class game_ui : public game_state {
     for (int i = 0;i < terminal_width/2;i++) {
       std::cout << "><";
     }
+     set_colour ("reset");
 
-    set_colour ("reset");
+     print_functionable_back_button(terminal_width / 2 - 4,terminal_height / 8 + 14);
 
-    }
+   }
 
    void check_high_score() {
     system("cls");
@@ -646,18 +717,65 @@ class game_ui : public game_state {
     for (int i = 0;i < terminal_width/2;i++) {
       std::cout << "><";
     }
-    set_colour("reset");
+    set_colour ("reset");
 
+    print_functionable_back_button(terminal_width / 2 - 3,terminal_height / 8 + 5);
+    //functional back mouse cllick button 
+  }
+
+   void print_menu_border() {
+    get_terminal_size();
+    std::cout << "\033[?25l";
+    set_colour("cyan");
+
+    //border around main menu
+    //upper border
+    move_cursor ((terminal_width/2 - (total_row/2 + 16)) , terminal_height/4 - 2);
+    for (int i = 0; i <= 40 + total_row ; i++) {
+      std::cout << "#";
+    }
+    //left border
+    move_cursor ((terminal_width/2 - (total_row/2 + 17)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
+       move_cursor ((terminal_width/2 - (total_row/2 + 17)) , i);
+      std::cout << "#" << std::endl;
+    }
+     //right border
+     move_cursor ((terminal_width/2 - (total_row/2 - 15)) , terminal_height/4 - 2);
+     for (int i =  (terminal_height/4 - 2)  ; i <= (terminal_height/4 - 2 + 15); i++) {
+       move_cursor ((terminal_width/2 - (total_row/2 - 31)) , i);
+      std::cout << "#" << std::endl;
+    }
+    //lower border
+    move_cursor ((terminal_width/2 - 4) - 15 , terminal_height/4 + 13);
+    for (int i = 0; i <= 40 + total_row ; i++) {
+      std::cout << "#";
+    }
+
+    set_colour ("yellow");
+    //print menu options : 
+    move_cursor (terminal_width/2+2  , terminal_height/4 + 1);
+    std::cout << "{:PLAY:}" << std::endl;
+    move_cursor (terminal_width/2  , terminal_height/4 + 4);
+    std::cout << "{:RULEBOOK:}" << std::endl;
+    move_cursor (terminal_width/2  , terminal_height/4 + 7);
+    std::cout << "{:HIGHSCORE:}" << std::endl;
+    move_cursor (terminal_width/2+2  , terminal_height/4 + 10);
+    std::cout << "{:QUIT:}" << std::endl;
+  
    }
 
-   void game_menu () {
-    int a;
+   void main_menu () {
     while (true) {
-    std::cin >> a;
-    if (a==1) play();
-    if (a==2) rulebook();
-    if (a==3) check_high_score();
-    if (a==4) break;
+    system("cls");
+    get_terminal_size();
+    print_menu_border();
+    int mouse_input = handle_mouse_clicks_main_menu();
+    if (!mouse_input) handle_mouse_clicks_main_menu(); //keep calling if we cant get a handle as we return 0 for that
+    else if (mouse_input==1) play();
+    else if (mouse_input==2) rulebook();
+    else if (mouse_input==3) check_high_score();
+    else if (mouse_input==4) return;
     }
    }
 
@@ -676,5 +794,5 @@ class game_ui : public game_state {
 
 int main () {
   game_ui game;
-  game.game_menu();
+  game.main_menu();
 }
