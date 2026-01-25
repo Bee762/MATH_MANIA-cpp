@@ -226,7 +226,7 @@ class math_equation {
     bool subtraction_op_present = true;
     std::string previous_op = "empty";  //used for unary minus detection later
 
-   std::mt19937 gen{std::random_device{}()}; //random number generator engine
+    std::mt19937 gen{std::random_device{}()}; //random number generator engine
 
     std::string copy_question [11];  // a array that we will copy current question 
   // and print the question from here as our original array will be used in solving
@@ -639,7 +639,11 @@ class game_ui : public game_state {
     }
     else if (user_answer == 1000000) {
       set_colour ("red");
-      std::cout << "  [NO ANSWER]" << std::endl;
+
+      if (player_quit) std::cout << "  GAME-ABORTED" << std::endl;
+
+      else std::cout << "  [NO ANSWER]" << std::endl;
+
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     set_colour ("reset");
@@ -796,8 +800,125 @@ class game_ui : public game_state {
       update_high_score();
   }
 
+  void opening_screen () {
+
+     get_terminal_size();
+
+     std::cout << "\033[1m"; //ansi escape for bold and bright text
+
+     set_colour ("yellow");
+
+    move_cursor(0,terminal_height/4);
+    for (int i = 0; i < terminal_width ;i += 2) {
+      std::cout << "><";
+    }
+
+    move_cursor(0,terminal_height*3/4);
+    for (int i = 0; i < terminal_width ;i += 2) {
+      std::cout << "><";
+    }
+
+    set_colour ("red");
+
+    move_cursor (terminal_width/2 - 6,terminal_height/2);
+    std::cout << ":M@TH-MANIA:" << std::endl;
+
+    set_colour("blue");
+
+    move_cursor(terminal_width/2 - 8,terminal_height/2 - 2);
+    for (int i = terminal_width/2 - 8; i < terminal_width/2+8 ;i++) {
+      std::cout << "#";
+    }
+
+    move_cursor(terminal_width/2 - 8,terminal_height/2 + 2);
+    for (int i = terminal_width/2 - 8; i < terminal_width/2+8 ;i++) {
+      std::cout << "#";
+    }
+
+    for (int i = (terminal_height/2-2); i < terminal_height/2 + 3 ;i++) {
+      move_cursor(terminal_width/2 - 9,i);
+      std::cout << "#" << std::endl;
+    }
+
+    for (int i = (terminal_height/2-2); i < terminal_height/2 + 3 ;i++) {
+      move_cursor(terminal_width/2 + 8,i);
+      std::cout << "#" << std::endl;
+    }
+
+    set_colour("magenta");
+
+    for (int i = terminal_height / 4 + 1 ; i < terminal_height / 2 - 2 ; i++) {
+      move_cursor(terminal_width/2 , i);
+      std::cout << "|";
+    }
+
+    for (int i = terminal_height / 2 + 3 ; i < terminal_height *3 / 4  ; i++) {
+      move_cursor(terminal_width/2 , i);
+      std::cout << "|" ;
+    }
+
+    set_colour("cyan");
+
+    move_cursor (terminal_width/2 - 10,terminal_height*3/4 + 1);
+    std::cout << "~~ MADE BY ROHAN DEB(Bee)" << std::endl;
+
+    //loading screen :  
+
+    set_colour ("yellow");
+     get_terminal_size();
+
+    move_cursor(terminal_width/4,terminal_height/4 - 4);
+    for (int i = terminal_width/4; i < terminal_width * 3/4 ;i++) {
+      std::cout << ":";
+    }
+
+    for (int i = terminal_height / 4 - 3 ; i < terminal_height / 4  ; i++) {
+      move_cursor(terminal_width/4, i);
+      std::cout << ":";
+    }
+
+    for (int i = terminal_height / 4 - 3 ; i < terminal_height / 4  ; i++) {
+      move_cursor(terminal_width * 3 / 4 - 1 , i);
+      std::cout << ":";
+    }
+
+    move_cursor(terminal_width/4 + 4,terminal_height/4 - 2);
+     set_colour ("green");
+    std::cout << " LOADING : ";
+  }
+
+  void loading_screen () {
+     std::cout << "\033[?25l";  // ansi escape code for hide cursor
+     set_colour ("red");
+     opening_screen();
+
+     for (int i = terminal_width/4 + 15 ; i < terminal_width *3 /4 - 4 ; i++ ) {
+
+      int current_height = terminal_height;
+      int current_width = terminal_width;
+
+      get_terminal_size();
+
+      if (current_height!=terminal_height || current_width!=terminal_width) {
+        system("cls"); //dynamic window resizing
+        opening_screen();
+      }
+
+      std::string b = random_operator();
+      std::cout << b;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    set_colour("reset");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+  }
+
   void rulebook() {
     system("cls");
+    std::cout << "\033[1m";
+
     get_terminal_size();
     move_cursor(terminal_width / 2 - 6 , terminal_height / 8);
     set_colour("yellow");
@@ -836,6 +957,9 @@ class game_ui : public game_state {
    }
 
    void check_high_score() {
+
+    std::cout << "\033[1m";
+
     system("cls");
     get_terminal_size();
     set_colour ("cyan");
@@ -868,6 +992,7 @@ class game_ui : public game_state {
 
    void print_menu() {
     get_terminal_size();
+    std::cout << "\033[1m";
     std::cout << "\033[?25l";
     set_colour("cyan");
 
@@ -905,11 +1030,13 @@ class game_ui : public game_state {
     std::cout << "{:HIGHSCORE:}" << std::endl;
     move_cursor (terminal_width/2+2  , terminal_height/4 + 10);
     std::cout << "{:QUIT:}" << std::endl;
-  
+
+    set_colour("reset");
    }
 
    void print_difficulty() {
     get_terminal_size();
+    std::cout << "\033[1m";
     std::cout << "\033[?25l";
     set_colour("red");
 
@@ -947,10 +1074,12 @@ class game_ui : public game_state {
     std::cout << "{:HARD-CORE:}" << std::endl;
     move_cursor (terminal_width/2+2  , terminal_height/4 + 10);
     std::cout << "{:BACK:}" << std::endl;
-  
+
+    set_colour("reset");
    }
 
    void main_menu () {
+    loading_screen(); //gets called once as a intro scene
     while (true) {
     system("cls");
     get_terminal_size();
@@ -979,7 +1108,23 @@ class game_ui : public game_state {
 
 };
 
+class game : private game_ui {
+
+  public :
+  
+  game() : game_ui () {
+
+  }
+
+  void play () { 
+     // its public entry point ,so no other func cant be called from main
+    // except this one coz we r using private inheritance from game ui
+    main_menu();
+  }
+
+};
+
 int main () {
-  game_ui game;
-  game.main_menu();
+  game start;
+  start.play();
 }
