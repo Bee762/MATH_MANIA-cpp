@@ -44,7 +44,7 @@ Hello , My name is Rohan Deb.I am from India and currently pursuing my B.tech Co
 I am currently in First year and am learning c++.THis project was built to practice oop and other c++
 fundamentals and thats why i didnot use any game engine or any other framework.
 If you like this project ,let me know at :
-rohanden232@gmail.com
+rohandeb232@gmail.com
    ~~Thank you :>
 
 ## HOW TO COMPILE AND RUN : 
