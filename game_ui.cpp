@@ -408,7 +408,9 @@
     std::cout << "{4} : IN MAIN MENU MOUSE CLICKS ARE ALLOWED BUT IN GAME ONLY KEYBOARD INPUTS ARE ALLOWED." << std::endl;
     move_cursor(4,terminal_height/8 + 9);
     std::cout << "{5} : PRESS Q TO END THE CURRENT GAME AND RETURN TO MAIN MENU." << std::endl;
-    move_cursor(0,terminal_height/8 + 9 + 2);
+    move_cursor(4,terminal_height/8 + 10);
+    std::cout << "{6} : FOR DECIMAL ANSWER IN DIVISION, ROUND IT OFF TO NEAREST INTEGER." << std::endl;
+    move_cursor(0,terminal_height/8 + 10 + 2);
 
     set_colour("yellow");
     for (int i = 0;i < terminal_width/2;i++) {
@@ -418,7 +420,7 @@
 
      //functional back mouse cllick button 
 
-     print_functionable_back_button(terminal_width / 2 - 4,terminal_height / 8 + 14);
+     print_functionable_back_button(terminal_width / 2 - 4,terminal_height / 8 + 15);
 
    }
 
